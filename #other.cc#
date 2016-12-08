@@ -1,0 +1,291 @@
+#include <iostream>               // for cout
+#include <utility>                 // for pair
+#include <algorithm>             // for for_each
+#include <iterator>
+#include <vector>
+#include <map>
+#include <ctime>
+#include <math.h>
+#include <omp.h>
+#include <string>
+#include <sstream>
+
+using namespace std;
+
+
+// Returns a vector of keys of the map
+vector<vector<vector<int>>> keys(map<vector<vector<int>>,int> m)
+{
+  vector<vector<vector<int>>> v = {};
+        for (map<vector<vector<int>>,int>::iterator it = m.begin(); it != m.end(); ++it)
+        {
+                v.push_back(it->first);
+        }
+        return v;
+}
+
+// Print Vector
+void print_v(vector<int> v)
+{
+        for (int i=0; i<v.size(); i++)
+        {
+                cout << " " << v[i];
+        }
+        cout << "\n\n";
+}
+// Print the graph
+void print_graph(vector<vector<int>> G)
+{
+        for (int i=0; i < G.size(); i++)
+        {
+                cout << G[i][0];
+                for (int j=1; j<G[i].size(); j++)
+                {
+                        cout << " " << G[i][j];
+                }
+                cout << "\n";
+        }
+        cout << "\n";
+}
+
+// Delete a vertex and it's neighbours
+// For indep set alg
+vector<vector<int>> del_v(vector<int> Vs, vector<vector<int>> G)
+{
+        int n = G.size();
+        vector<vector<int>> H = {};
+        for (int i=0; i<n; i++)
+        {
+                if (find(Vs.begin(), Vs.end(), i) != Vs.end())
+                {
+                        continue;
+                }
+                H.push_back({});
+                for (int j=0; j<n; j++)
+                {
+                        if (find(Vs.begin(), Vs.end(), j) != Vs.end())
+                        {
+                                continue;
+                        }
+                        H[H.size()-1].push_back(G[i][j]);
+                }
+        }
+        return H;
+}
+
+int indep( vector<vector<int>> G )
+{
+        int MAX = 0;
+        int n = G.size();
+        if (n == 0)
+        {
+                return 0;
+        }
+        if (n == 1)
+        {
+                return 1;
+        }
+        for (int i=0; i<n; i++)
+        {
+                vector<int> Vs = {i};
+                for (int j=0; j<n; j++)
+                {
+                        if (G[i][j]==1)
+                        {
+                                Vs.push_back(j);
+                        }
+                }
+                vector<vector<int>> H = del_v(Vs,G);
+                int SUM = 1 + indep(H);
+                if (SUM>MAX)
+                {
+                        MAX = SUM;
+                }
+        }
+        return MAX;
+}
+
+vector<int> copy_v(vector<int> v)
+{
+        vector<int> w(v.size(),0);
+        for (int i=0; i<v.size(); i++)
+        {
+                w[i] = v[i];
+        }
+        return w;
+}
+
+vector<vector<int>> copy_G(vector<vector<int>> G)
+{
+        vector<vector<int>> H(G.size(), vector<int> (G.size(),0));
+        for (int i=0; i<G.size(); i++)
+        {
+                for (int j=0; j<G.size(); j++)
+                {
+                        H[i][j] = G[i][j];
+                }
+        }
+        return H;
+}
+
+vector<vector<int>> copy_G_p1(vector<vector<int>> G)
+{
+        vector<vector<int>> H(G.size()+1, vector<int> (G.size()+1,0));
+        for (int i=0; i<G.size(); i++)
+        {
+                for (int j=0; j<G.size(); j++)
+                {
+                        H[i][j] = G[i][j];
+                }
+        }
+        return H;
+}
+
+vector<int> split(string str)
+{
+	string buf; // Have a buffer string
+	stringstream ss(str); // Insert the string into a stream
+	vector<int> tokens; // Create vector to hold our words
+
+	while (ss >> buf)
+	{
+		tokens.push_back(stoi(buf));
+	}
+	return tokens;
+}
+
+vector<vector<vector<int>>> get_graphs(int argc, char **argv)
+{
+	vector<vector<vector<int>>> Glist;
+        string lineInput;
+	vector<vector<int>> temp = {};
+        while (getline(cin,lineInput))
+        {
+		if (lineInput.size()==0)
+		{
+			Glist.push_back(temp);
+			temp = {};
+		}
+		else
+		{
+			temp.push_back(split(lineInput));
+		}
+        }
+	return Glist;
+}
+
+map<vector<vector<int>>,int> fm_loop(vector<vector<int>> G, vector<vector<int>> edges, vector<int> key, map<vector<int>, map<vector<vector<int>>,int> >& e_dict)
+{
+        // Check if the key is already in the dictionary
+        if ( e_dict.find(key) != e_dict.end() )
+        {
+                return e_dict[key];
+        }
+
+        map<vector<vector<int>>,int> out = {};
+        // Check if graph is still tight
+        if (indep(G)!=ceil(((float)G.size())/((float)4)))
+        {
+                return out;
+        }
+        //  Loop over remaining edges
+        for (int i=0; i<edges.size(); i++)
+        {
+                // Skip if edge already deleted
+                if (key[i] == 1)
+                {
+                        continue;
+                }
+
+                vector<int> new_key = copy_v(key);
+                new_key[i] = 1;
+                vector<vector<int>> H = copy_G(G);
+                H[edges[i][0]][edges[i][1]]=0;
+                H[edges[i][1]][edges[i][0]]=0;
+
+                // Recurse over edges to delete
+                map<vector<vector<int>>,int> smaller = fm_loop(H,edges,new_key,e_dict);
+                for (map<vector<vector<int>>,int>::iterator it = smaller.begin(); it != smaller.end(); ++it)
+                {
+                        out[it->first] = 1;
+                }
+                /*for (int j=0; j<out.size(); j++)
+                {
+                        cout<< "out: \n";
+                        print_graph(out[j]);
+                }*/
+        }
+        if (out.size() == 0 )
+        {
+                out[G] = 1;
+        }
+        e_dict[key] = out;
+        return out;
+}
+
+map<vector<vector<int>>,int> find_minimals(vector<vector<int>> G)
+{
+        // Generate list of edges
+        vector<vector<int>> edges = {};
+        map<vector<int>, map<vector<vector<int>>,int> > e_dict;
+        for (int i=0; i<G.size(); i++)
+        {
+                for (int j=i; j<G.size(); j++)
+                {
+                        if (G[i][j] == 1)
+                        {
+                                edges.push_back(vector<int> {i,j});
+                        }
+                }
+        }
+        // Run the loop
+        return fm_loop(G, edges, vector<int> (edges.size(),0), e_dict);
+}
+
+//_______________________________________________________________________________________
+//_______________________________________________________________________________________
+//_______________________________________________________________________________________
+
+
+int main(int argc, char **argv)
+{
+	cout << "reading" << endl;
+	vector<vector<vector<int>>> graphs = get_graphs(argc, argv);
+
+
+
+	cout << "triangulations: " << graphs.size() << endl;
+
+        vector<vector<vector<int>>> tights = {};
+
+	for (int i=0; i<graphs.size();i++)
+	{
+		if (indep(graphs[i])==ceil(((float)graphs[i].size())/((float)4)))
+                {
+                        tights.push_back(graphs[i]);
+                }
+	}
+	cout << "tights: " << tights.size() << endl;
+
+	map<vector<vector<int>>,int> minimals;
+	for (int i=0; i<tights.size(); i++)
+	{
+		map<vector<vector<int>>,int> temp = find_minimals(tights[i]);
+		minimals.insert(temp.begin(),temp.end());
+	}
+
+	cout << "minimals: " << minimals.size() << endl;
+
+	for (map<vector<vector<int>>,int>::iterator it = minimals.begin(); it != minimals.end(); ++it)
+	{
+		print_graph(it->first);
+	}
+
+
+	return 1;
+}
+
+
+
+
+
